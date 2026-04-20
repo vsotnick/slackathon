@@ -1,0 +1,239 @@
+# =============================================================================
+# Slackathon — Docker Compose (Phase 1: Single Node)
+#
+# Services:
+#   postgres  — PostgreSQL 16 (auth DB + Prosody MAM archive)
+#   prosody   — Prosody XMPP server (messaging, presence, MUC, WebSocket)
+#   api       — Node.js Fastify API (auth, provisioning, REST endpoints)
+#   nginx     — Reverse proxy (routes HTTP/WS traffic to api and prosody)
+#
+# Usage:
+#   cp .env.example .env   # Fill in secrets
+#   docker compose up -d
+#
+# Phase 2 (Federation) uses: docker compose -f docker-compose.yml -f docker-compose.federation.yml up
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # Stores: user accounts, room metadata, file metadata, Prosody MAM archive
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: slackathon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-slackathon}
+      POSTGRES_USER:     ${POSTGRES_USER:-slackathon}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      # Named volume for data persistence across container restarts
+      - postgres_data:/var/lib/postgresql/data
+      # Init scripts are run once when the volume is first created
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      # Expose for local debugging tools (e.g. pgAdmin, DBeaver).
+      # Remove in production to prevent external access.
+      - "5432:5432"
+    healthcheck:
+      # pg_isready polls until PostgreSQL is accepting connections.
+      # Node API uses its own retry loop for the brief window after pg_isready
+      # returns true but before the first query can be served.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-slackathon} -d ${POSTGRES_DB:-slackathon}"]
+      interval: 10s
+      timeout:  5s
+      retries:  10
+      start_period: 30s
+    networks:
+      - slackathon-net
+
+  # ---------------------------------------------------------------------------
+  # Prosody XMPP Server
+  # Handles all real-time messaging, presence, MUC rooms, and WebSocket transport.
+  # Communicates with PostgreSQL for message archive (MAM) storage.
+  # Exposes mod_admin_rest for Node API user provisioning.
+  # ---------------------------------------------------------------------------
+  prosody:
+    build:
+      context: ./prosody
+      dockerfile: Dockerfile
+    container_name: slackathon-prosody
+    restart: unless-stopped
+    environment:
+      XMPP_DOMAIN:        ${XMPP_DOMAIN:-serverA.local}
+      POSTGRES_DB:        ${POSTGRES_DB:-slackathon}
+      POSTGRES_USER:      ${POSTGRES_USER:-slackathon}
+      POSTGRES_PASSWORD:  ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_HOST:      postgres
+      # Admin credentials — must match the admins = { } list in prosody.cfg.lua
+      PROSODY_ADMIN_USER:     ${PROSODY_ADMIN_USER:-admin}
+      PROSODY_ADMIN_PASSWORD: ${PROSODY_ADMIN_PASSWORD:?PROSODY_ADMIN_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # 5222 — Native XMPP (for external Jabber clients like Gajim)
+      - "5222:5222"
+      # 5269 — S2S federation (seeded for Phase 2; no external routing in Phase 1)
+      - "5269:5269"
+      # 5280 — BOSH/WebSocket (proxied by Nginx; not accessed directly in prod)
+      # Exposed here for debugging only — remove in production
+      - "5280:5280"
+    volumes:
+      # Persist generated TLS certs across container restarts
+      - prosody_certs:/etc/prosody/certs
+      # Prosody data directory (accounts, roster if not using SQL)
+      - prosody_data:/var/lib/prosody
+    networks:
+      - slackathon-net
+    # Prosody doesn't have a built-in health check command.
+    # We check that port 5280 (mod_websocket/BOSH) is responding.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:5280 || exit 0"]
+      interval: 15s
+      timeout:  10s
+      retries:  5
+      start_period: 45s  # Allow time for cert generation + Prosody startup
+
+  # ---------------------------------------------------------------------------
+  # Node.js Fastify API
+  # Control plane: auth, XMPP provisioning, file uploads, admin endpoints.
+  # Connects to PostgreSQL directly and to Prosody via mod_admin_rest.
+  # ---------------------------------------------------------------------------
+  api:
+    image: node:20-alpine
+    container_name: slackathon-api
+    working_dir: /app
+    # Run nodemon so the server auto-restarts whenever any file in src/ changes.
+    # npm install runs first to ensure deps are up-to-date after any package.json edits.
+    command: sh -c "npm install && npx nodemon --legacy-watch --watch src src/index.js"
+    restart: unless-stopped
+    environment:
+      NODE_ENV:               development
+      API_PORT:               3001
+      DATABASE_URL:           ${DATABASE_URL:-postgresql://${POSTGRES_USER:-slackathon}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-slackathon}}
+      JWT_SECRET:             ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRES_IN:         ${JWT_EXPIRES_IN:-7d}
+      AES_SECRET_KEY:         ${AES_SECRET_KEY:?AES_SECRET_KEY must be 64 hex chars (32 bytes)}
+      PROSODY_ADMIN_URL:      http://prosody:5280
+      PROSODY_ADMIN_USER:     ${PROSODY_ADMIN_USER:-admin}
+      PROSODY_ADMIN_PASSWORD: ${PROSODY_ADMIN_PASSWORD:?PROSODY_ADMIN_PASSWORD is required}
+      XMPP_DOMAIN:            ${XMPP_DOMAIN:-serverA.local}
+      XMPP_MUC_DOMAIN:        conference.${XMPP_DOMAIN:-serverA.local}
+      APP_BASE_URL:           ${APP_BASE_URL:-http://localhost}
+      UPLOADS_DIR:            /app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prosody:
+        condition: service_started
+    volumes:
+      # Live source mount — changes to api/src on the host are immediately visible
+      - ./api:/app
+      # Isolate node_modules inside a named volume so the host directory
+      # doesn't overwrite what's installed inside the container
+      - api_node_modules:/app/node_modules
+      # Phase 1: local Docker volume for file uploads (MinIO in Phase 2)
+      - files_data:/app/uploads
+    networks:
+      - slackathon-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:3001/api/health || exit 1"]
+      interval: 15s
+      timeout:  5s
+      retries:  5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Nginx Reverse Proxy
+  # Single entry point: routes /api → API, /xmpp → Prosody WS, / → React
+  # ---------------------------------------------------------------------------
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: slackathon-nginx
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      # prosody is needed for WebSocket proxy — wait for it to start
+      prosody:
+        condition: service_started
+      # client dev server must be running before Nginx can proxy /
+      client:
+        condition: service_started
+    ports:
+      # Primary public port — all browser traffic enters here
+      - "80:80"
+      # 443 reserved for Phase 2 (HTTPS/TLS termination)
+    networks:
+      - slackathon-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1/nginx-health || exit 1"]
+      interval: 15s
+      timeout:  5s
+      retries:  3
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # React / Vite Dev Server (Phase 2)
+  # Mounts the /client directory. Nginx proxies / → client:3000.
+  # HMR (hot module replacement) works because Nginx also upgrades WebSocket
+  # connections to this upstream.
+  # ---------------------------------------------------------------------------
+  client:
+    image: node:20-alpine
+    container_name: slackathon-client
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+    volumes:
+      - ./client:/app
+      - client_node_modules:/app/node_modules
+    ports:
+      # Exposed for direct access during debugging (not required in prod)
+      - "3000:3000"
+    networks:
+      - slackathon-net
+    restart: unless-stopped
+
+# =============================================================================
+# Networks
+# All services communicate on the internal bridge network.
+# Only Nginx (port 80) and PostgreSQL (5432, debug) are exposed externally.
+# =============================================================================
+networks:
+  slackathon-net:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  # PostgreSQL data — survives container restarts and updates
+  postgres_data:
+    driver: local
+
+  # Prosody TLS certificates — avoid regenerating on every restart
+  prosody_certs:
+    driver: local
+
+  # Prosody internal data (accounts if not using full SQL storage, PIDs, etc.)
+  prosody_data:
+    driver: local
+
+  # Phase 1 file uploads — local filesystem
+  # Phase 2: Replace with MinIO (S3-compatible) — no schema changes required
+  files_data:
+    driver: local
+
+  # Client node_modules — persisted in a named volume for fast restarts
+  client_node_modules:
+    driver: local
+
+  # API node_modules — isolated from the host bind-mount so installed packages
+  # inside the container are not overwritten by the empty host directory
+  api_node_modules:
+    driver: local

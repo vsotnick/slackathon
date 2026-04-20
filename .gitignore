@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+.next/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Prosody generated certs (generated at container startup)
+prosody/certs/
+prosody/data/
+
+# Docker volumes (local bind-mount data)
+postgres/data/
+files/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+.nyc_output/

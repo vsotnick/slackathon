@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Slackathon — UI Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0d0f14; color: #e2e8f0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── Layout ── */
+  .shell { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 240px; min-width: 240px;
+    background: #111318;
+    border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex; flex-direction: column;
+    padding: 0;
+    overflow-y: auto;
+  }
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:4px;}
+
+  .workspace-header {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer;
+  }
+  .ws-icon {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 16px; color: white;
+  }
+  .ws-name { font-weight: 700; font-size: 14px; color: #fff; letter-spacing: -0.3px; }
+  .ws-status { font-size: 11px; color: #64748b; margin-top: 1px; display:flex; align-items:center; gap:4px;}
+  .dot { width: 7px; height: 7px; border-radius: 50%; display:inline-block; }
+  .dot-green { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .dot-amber { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+  .dot-gray  { background: #475569; }
+
+  .sb-section { padding: 16px 12px 4px; }
+  .sb-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; color: #475569; text-transform: uppercase; padding: 0 6px; margin-bottom: 4px; }
+
+  .ch-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 6px; border-radius: 6px;
+    font-size: 13.5px; color: #94a3b8; cursor: pointer;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .ch-item:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
+  .ch-item.active { background: rgba(59,130,246,0.15); color: #93c5fd; font-weight: 500; }
+  .ch-item .unread {
+    margin-left: auto; background: #3b82f6; color: #fff;
+    font-size: 10px; font-weight: 700; border-radius: 10px;
+    padding: 1px 6px; min-width: 18px; text-align: center;
+  }
+  .ch-prefix { color: #475569; font-size: 13px; }
+  .ch-item.active .ch-prefix { color: #93c5fd; }
+
+  .dm-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 6px; border-radius: 6px;
+    font-size: 13px; color: #94a3b8; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .dm-item:hover { background: rgba(255,255,255,0.05); color: #e2e8f0; }
+  .dm-avatar {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: #fff; flex-shrink: 0;
+    position: relative;
+  }
+  .dm-avatar .presence {
+    position: absolute; bottom: -1px; right: -1px;
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 1.5px solid #111318;
+  }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 12px 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .footer-avatar {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #fff; flex-shrink: 0;
+    position: relative;
+  }
+  .footer-avatar .presence {
+    position: absolute; bottom: -2px; right: -2px;
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid #111318;
+    background: #22c55e; box-shadow: 0 0 6px #22c55e;
+  }
+  .footer-info { flex: 1; min-width: 0; }
+  .footer-name { font-size: 12.5px; font-weight: 600; color: #e2e8f0; }
+  .footer-jid { font-size: 10.5px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .logout-btn {
+    font-size: 11px; color: #475569; background: transparent;
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 5px;
+    padding: 3px 8px; cursor: pointer; font-family: inherit;
+    transition: all 0.15s;
+  }
+  .logout-btn:hover { color: #f87171; border-color: rgba(248,113,113,0.3); }
+
+  /* ── Chat Pane ── */
+  .chat-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  .chat-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(13,15,20,0.8);
+    backdrop-filter: blur(12px);
+    flex-shrink: 0;
+  }
+  .chat-header-main { flex: 1; }
+  .chat-room-name { font-size: 15px; font-weight: 700; color: #f1f5f9; }
+  .chat-room-desc { font-size: 12px; color: #64748b; margin-top: 1px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+  .header-btn {
+    width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    color: #64748b; cursor: pointer; transition: all 0.15s;
+    background: rgba(255,255,255,0.04); border: none;
+  }
+  .header-btn:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+  .member-count { font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 4px; }
+
+  /* ── Message List ── */
+  .message-list {
+    flex: 1; overflow-y: auto;
+    padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .message-list::-webkit-scrollbar { width: 5px; }
+  .message-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+  .date-sep {
+    display: flex; align-items: center; gap: 12px;
+    margin: 12px 0;
+  }
+  .date-sep::before, .date-sep::after {
+    content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.07);
+  }
+  .date-sep span { font-size: 11px; color: #475569; font-weight: 500; white-space: nowrap; }
+
+  .msg-row {
+    display: flex; gap: 10px; padding: 4px 6px;
+    border-radius: 8px; transition: background 0.1s;
+    align-items: flex-start;
+  }
+  .msg-row:hover { background: rgba(255,255,255,0.025); }
+
+  .msg-avatar {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; margin-top: 1px;
+  }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-meta { display: flex; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+  .msg-sender { font-size: 13.5px; font-weight: 600; }
+  .msg-time { font-size: 11px; color: #475569; }
+  .msg-text { font-size: 14px; color: #cbd5e1; line-height: 1.55; }
+
+  /* Ephemeral Bubble */
+  .ephemeral-row {
+    margin: 6px 0;
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: rgba(15,10,5,0.8);
+    border: 1px solid rgba(249,115,22,0.35);
+    box-shadow: 0 0 20px rgba(249,115,22,0.12), inset 0 0 30px rgba(249,115,22,0.03);
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+  }
+  .ephemeral-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+  }
+  .ephemeral-badge {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #fb923c; background: rgba(249,115,22,0.12);
+    border: 1px solid rgba(249,115,22,0.25); border-radius: 4px; padding: 2px 8px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .ephemeral-meta { font-size: 11.5px; color: #64748b; }
+
+  .ephemeral-content {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(249,115,22,0.15);
+    border-radius: 8px; padding: 18px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .ephemeral-icon { font-size: 28px; filter: drop-shadow(0 0 10px #f97316); }
+  .ephemeral-label {
+    font-size: 14px; font-weight: 600;
+    color: #fdba74;
+    text-shadow: 0 0 20px rgba(249,115,22,0.5);
+  }
+  .ephemeral-hint { font-size: 11.5px; color: #92400e; margin-top: 2px; }
+
+  /* Ephemeral revealed state */
+  .ephemeral-row.revealed .ephemeral-content {
+    background: rgba(15,10,5,0.95);
+  }
+  .ephemeral-row.revealed .ephemeral-icon { display: none; }
+  .ephemeral-row.revealed .ephemeral-label {
+    font-size: 14px; color: #fde68a;
+    text-shadow: none; font-weight: 400;
+    font-family: 'Inter', monospace;
+  }
+  .ephemeral-row.revealed .ephemeral-hint { color: #f97316; }
+
+  /* Countdown */
+  .countdown-overlay {
+    position: absolute; inset: 0; border-radius: 12px;
+    background: rgba(10,5,0,0.92);
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    display: none;
+  }
+  .countdown-overlay.visible { display: flex; }
+  .countdown-num { font-size: 40px; font-weight: 800; color: #f97316; animation: pulse 1s ease infinite; }
+  .countdown-text { font-size: 14px; color: #fdba74; }
+  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.7; transform:scale(0.9); } }
+
+  /* ── Chat Input ── */
+  .chat-input-area {
+    padding: 12px 16px 14px;
+    background: #111318;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .input-row {
+    display: flex; align-items: center; gap: 8px;
+    background: #1a1e2a;
+    border: 1.5px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 8px 10px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-row.secure {
+    border-color: rgba(99,102,241,0.5);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.08), 0 0 20px rgba(99,102,241,0.08);
+  }
+  .secure-toggle {
+    width: 30px; height: 30px; border-radius: 7px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; font-size: 15px;
+    transition: all 0.2s;
+    background: rgba(255,255,255,0.04);
+    color: #64748b;
+  }
+  .secure-toggle:hover { background: rgba(255,255,255,0.08); }
+  .secure-toggle.on {
+    background: rgba(99,102,241,0.15);
+    color: #818cf8;
+    box-shadow: 0 0 12px rgba(99,102,241,0.3);
+  }
+  .msg-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    font-size: 14px; color: #e2e8f0; font-family: 'Inter', sans-serif;
+    resize: none; height: 22px; line-height: 22px;
+  }
+  .msg-input::placeholder { color: #475569; }
+  .msg-input.secure-placeholder::placeholder { color: #818cf8; }
+  .send-btn {
+    height: 30px; padding: 0 14px; border-radius: 7px;
+    border: none; cursor: pointer; font-size: 13px; font-weight: 600;
+    color: #fff; font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    transition: all 0.2s; white-space: nowrap; flex-shrink: 0;
+  }
+  .send-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .send-btn.secure { background: linear-gradient(135deg, #6366f1, #9f7aea); }
+
+  .input-hint {
+    margin-top: 6px; padding: 0 6px;
+    font-size: 11px; color: #475569;
+    display: flex; align-items: center; gap: 6px;
+    transition: color 0.2s;
+  }
+  .input-hint.secure-on { color: #818cf8; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <!-- Workspace Header -->
+    <div class="workspace-header">
+      <div class="ws-icon">S</div>
+      <div>
+        <div class="ws-name">SLACKATHON</div>
+        <div class="ws-status"><span class="dot dot-green"></span> servera.local</div>
+      </div>
+    </div>
+
+    <!-- Channels -->
+    <div class="sb-section">
+      <div class="sb-label">Channels</div>
+      <div class="ch-item active"><span class="ch-prefix">#</span> general <span class="unread">3</span></div>
+      <div class="ch-item"><span class="ch-prefix">#</span> engineering</div>
+      <div class="ch-item"><span class="ch-prefix">#</span> random</div>
+      <div class="ch-item"><span class="ch-prefix">#</span> announcements</div>
+      <div class="ch-item" style="color:#3b82f6; margin-top:4px; font-size:13px;">+ Join a room</div>
+    </div>
+
+    <!-- Direct Messages -->
+    <div class="sb-section">
+      <div class="sb-label">Direct Messages</div>
+      <div class="dm-item">
+        <div class="dm-avatar" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">
+          A <span class="presence" style="background:#22c55e;box-shadow:0 0 5px #22c55e;border-color:#111318;"></span>
+        </div>
+        alice
+      </div>
+      <div class="dm-item">
+        <div class="dm-avatar" style="background:linear-gradient(135deg,#a855f7,#7c3aed)">
+          B <span class="presence" style="background:#f59e0b;border-color:#111318;"></span>
+        </div>
+        bob
+      </div>
+      <div class="dm-item">
+        <div class="dm-avatar" style="background:linear-gradient(135deg,#475569,#334155)">
+          C <span class="presence" style="background:#475569;border-color:#111318;"></span>
+        </div>
+        charlie
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <div class="footer-avatar">VS<span class="presence"></span></div>
+      <div class="footer-info">
+        <div class="footer-name">vsot</div>
+        <div class="footer-jid">vsot@servera.local</div>
+      </div>
+      <button class="logout-btn">Logout</button>
+    </div>
+  </aside>
+
+  <!-- ── CHAT PANE ── -->
+  <div class="chat-pane">
+
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="chat-header-main">
+        <div class="chat-room-name"># general</div>
+        <div class="chat-room-desc">Company-wide announcements and news</div>
+      </div>
+      <div class="header-actions">
+        <div class="member-count">
+          <span class="dot dot-green"></span> 3 online
+        </div>
+        <button class="header-btn">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </button>
+        <button class="header-btn">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="message-list" id="msgList">
+      <div class="date-sep"><span>Today</span></div>
+
+      <!-- Standard message 1 -->
+      <div class="msg-row">
+        <div class="msg-avatar" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">A</div>
+        <div class="msg-body">
+          <div class="msg-meta">
+            <span class="msg-sender" style="color:#60a5fa">alice</span>
+            <span class="msg-time">10:42 AM</span>
+          </div>
+          <div class="msg-text">Hey team, the new build is deployed 🚀</div>
+        </div>
+      </div>
+
+      <!-- Standard message 2 -->
+      <div class="msg-row">
+        <div class="msg-avatar" style="background:linear-gradient(135deg,#a855f7,#7c3aed)">B</div>
+        <div class="msg-body">
+          <div class="msg-meta">
+            <span class="msg-sender" style="color:#c084fc">bob</span>
+            <span class="msg-time">10:44 AM</span>
+          </div>
+          <div class="msg-text">Great! Ran smoke tests — all passing ✅</div>
+        </div>
+      </div>
+
+      <!-- ── EPHEMERAL BUBBLE ── -->
+      <div class="ephemeral-row" id="ephemeralBubble"
+        onmousedown="revealEphemeral()" onmouseup="releaseEphemeral()" onmouseleave="releaseEphemeral()">
+        <div class="ephemeral-header">
+          <div class="ephemeral-badge">🔥 Ephemeral Message</div>
+          <div class="ephemeral-meta">charlie · 10:46 AM</div>
+        </div>
+        <div class="ephemeral-content" id="ephemeralContent">
+          <div class="ephemeral-icon">🔥</div>
+          <div class="ephemeral-label" id="ephemeralText">Press and hold to decrypt</div>
+          <div class="ephemeral-hint">hold to reveal · self-destructs on release</div>
+        </div>
+        <div class="countdown-overlay" id="countdown">
+          <div class="countdown-num" id="countdownNum">3</div>
+          <div class="countdown-text">Deleting…</div>
+        </div>
+      </div>
+
+      <!-- Standard message 3 -->
+      <div class="msg-row" id="aliceMsg">
+        <div class="msg-avatar" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">A</div>
+        <div class="msg-body">
+          <div class="msg-meta">
+            <span class="msg-sender" style="color:#60a5fa">alice</span>
+            <span class="msg-time">10:48 AM</span>
+          </div>
+          <div class="msg-text">Anyone free for a call at 3pm?</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="chat-input-area">
+      <div class="input-row" id="inputRow">
+        <button class="secure-toggle" id="secureToggle" onclick="toggleSecure()" title="Toggle Secure Mode">🔒</button>
+        <input class="msg-input" id="msgInput" placeholder="Message #general…" />
+        <button class="send-btn" id="sendBtn" onclick="sendMsg()">Send</button>
+      </div>
+      <div class="input-hint" id="inputHint">
+        🔒 <span id="hintText">Secure Mode OFF — click the lock to send ephemeral messages</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── Secure Mode Toggle ── */
+  let secureMode = false;
+  function toggleSecure() {
+    secureMode = !secureMode;
+    const toggle = document.getElementById('secureToggle');
+    const row = document.getElementById('inputRow');
+    const input = document.getElementById('msgInput');
+    const btn = document.getElementById('sendBtn');
+    const hint = document.getElementById('inputHint');
+    const hintText = document.getElementById('hintText');
+    if (secureMode) {
+      toggle.classList.add('on');
+      row.classList.add('secure');
+      input.classList.add('secure-placeholder');
+      input.placeholder = 'Type secure message…';
+      btn.classList.add('secure');
+      hint.classList.add('secure-on');
+      hintText.textContent = '🔥 SECURE MODE ON — message will auto-destruct after reading';
+    } else {
+      toggle.classList.remove('on');
+      row.classList.remove('secure');
+      input.classList.remove('secure-placeholder');
+      input.placeholder = 'Message #general…';
+      btn.classList.remove('secure');
+      hint.classList.remove('secure-on');
+      hintText.textContent = 'Secure Mode OFF — click the lock to send ephemeral messages';
+    }
+  }
+
+  /* ── Ephemeral Bubble ── */
+  let releaseTimer = null;
+  let countdownTimer = null;
+  let holding = false;
+
+  function revealEphemeral() {
+    if (!document.getElementById('ephemeralBubble')) return;
+    holding = true;
+    clearTimeout(releaseTimer);
+    const bubble = document.getElementById('ephemeralBubble');
+    const text = document.getElementById('ephemeralText');
+    bubble.classList.add('revealed');
+    text.textContent = '"The deployment key is: alpha-7-foxtrot"';
+  }
+
+  function releaseEphemeral() {
+    if (!holding || !document.getElementById('ephemeralBubble')) return;
+    holding = false;
+    const bubble = document.getElementById('ephemeralBubble');
+    bubble.classList.remove('revealed');
+    document.getElementById('ephemeralText').textContent = 'Press and hold to decrypt';
+
+    // Show countdown
+    const overlay = document.getElementById('countdown');
+    const num = document.getElementById('countdownNum');
+    overlay.classList.add('visible');
+    let count = 3;
+    num.textContent = count;
+    countdownTimer = setInterval(() => {
+      count--;
+      if (count <= 0) {
+        clearInterval(countdownTimer);
+        // Remove message
+        const b = document.getElementById('ephemeralBubble');
+        if (b) {
+          b.style.transition = 'opacity 0.4s, transform 0.4s';
+          b.style.opacity = '0';
+          b.style.transform = 'scale(0.95)';
+          setTimeout(() => b.remove(), 400);
+        }
+      } else {
+        num.textContent = count;
+      }
+    }, 1000);
+  }
+
+  /* ── Send Message ── */
+  function sendMsg() {
+    const input = document.getElementById('msgInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const list = document.getElementById('msgList');
+
+    if (secureMode) {
+      // Add ephemeral bubble
+      const div = document.createElement('div');
+      div.className = 'ephemeral-row';
+      div.id = 'ephemeralBubble';
+      div.innerHTML = `
+        <div class="ephemeral-header">
+          <div class="ephemeral-badge">🔥 Ephemeral Message</div>
+          <div class="ephemeral-meta">vsot · now</div>
+        </div>
+        <div class="ephemeral-content" id="ephemeralContent">
+          <div class="ephemeral-icon">🔥</div>
+          <div class="ephemeral-label" id="ephemeralText">Press and hold to decrypt</div>
+          <div class="ephemeral-hint">hold to reveal · self-destructs on release</div>
+        </div>
+        <div class="countdown-overlay" id="countdown"><div class="countdown-num" id="countdownNum">3</div><div class="countdown-text">Deleting…</div></div>`;
+      div.onmousedown = revealEphemeral;
+      div.onmouseup = releaseEphemeral;
+      div.onmouseleave = releaseEphemeral;
+      // store text in dataset
+      div.dataset.secret = text;
+      list.appendChild(div);
+    } else {
+      const div = document.createElement('div');
+      div.className = 'msg-row';
+      div.innerHTML = `
+        <div class="msg-avatar" style="background:linear-gradient(135deg,#3b82f6,#2563eb)">V</div>
+        <div class="msg-body">
+          <div class="msg-meta">
+            <span class="msg-sender" style="color:#60a5fa">vsot</span>
+            <span class="msg-time">now</span>
+          </div>
+          <div class="msg-text">${text}</div>
+        </div>`;
+      list.appendChild(div);
+    }
+
+    input.value = '';
+    list.scrollTop = list.scrollHeight;
+  }
+
+  document.getElementById('msgInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+  });
+
+  // Scroll to bottom
+  const list = document.getElementById('msgList');
+  list.scrollTop = list.scrollHeight;
+</script>
+</body>
+</html>

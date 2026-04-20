@@ -1,0 +1,226 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@layer base {
+  :root {
+    --bg-primary:    #0d0f14;
+    --bg-secondary:  #13161e;
+    --bg-tertiary:   #1a1e2a;
+    --bg-glass:      rgba(255,255,255,0.04);
+    --border-subtle: rgba(255,255,255,0.08);
+    --border-active: rgba(99,179,237,0.4);
+    --text-primary:  #e8eaf0;
+    --text-secondary: #8892a4;
+    --text-muted:    #4a5568;
+    --accent-blue:   #63b3ed;
+    --accent-violet: #9f7aea;
+    --accent-green:  #68d391;
+    --accent-red:    #fc8181;
+    --accent-yellow: #f6e05e;
+    --glow-blue:     rgba(99,179,237,0.15);
+    --glow-violet:   rgba(159,122,234,0.15);
+  }
+
+  /* 
+   * Phase 2.12 Fix: React Virtuoso renders lists dynamically. Since our chat relies on column-reverse 
+   * scrolling, items appended at the 'top' visually are actually added later in the HTML tree mathematically. 
+   * This natively breaks CSS z-index stacking layers, causing Hover Menus (-top-4) to slip under adjacent rows.
+   * Forcing the row z-index on hover solves this globally.
+   */
+  [data-virtuoso-item] {
+    position: relative !important;
+  }
+  [data-virtuoso-item]:hover {
+    z-index: 9999 !important;
+  }
+
+  /* ── Chat input Prism markdown highlight theme ──────────────────────────
+     react-simple-code-editor layers a <pre> highlight div under a transparent
+     <textarea>. We colour the tokens to give users visual feedback while typing.
+  ── */
+  .chat-editor-textarea {
+    background: transparent !important;
+    caret-color: #e2e8f0;
+  }
+
+  /* Prism token colours tuned for the dark chat palette */
+  .token.bold        { font-weight: 700; color: #e2e8f0; }
+  .token.italic      { font-style: italic; color: #c4b5fd; }
+  .token.code        { color: #86efac; background: rgba(134,239,172,0.08); border-radius: 3px; padding: 0 3px; font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+  .token.url,
+  .token.url-reference { color: #60a5fa; text-decoration: underline; }
+  .token.title       { color: #f0abfc; font-weight: 700; }
+  .token.strike      { color: #94a3b8; text-decoration: line-through; }
+  .token.punctuation { color: #475569; }  /* dims the **, __, `` etc */
+  .token.blockquote  { color: #94a3b8; border-left: 2px solid #334155; padding-left: 4px; }
+  .token.list.punctuation { color: #818cf8; font-weight: 700; }
+
+  /* ── Cursor & selection hygiene ────────────────────────────────────────────
+     Default: no text cursor, no accidental text selection on UI chrome.
+     Opt-in:  only inputs, textareas, and message body text get text cursor
+              and selection back.
+  ── */
+  * {
+    box-sizing: border-box;
+    /* No I-beam on labels, headings, badges, sidebar items, etc. */
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Re-enable text behaviour for genuinely interactive / readable elements */
+  input,
+  textarea,
+  [contenteditable],
+  .message-text,        /* message bubble body */
+  .selectable {         /* escape hatch — add class wherever text must be copyable */
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* Buttons and anchors keep their pointer cursor */
+  button,
+  a,
+  [role="button"],
+  label[for] {
+    cursor: pointer;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+}
+
+@layer utilities {
+  .glass {
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .glass-hover:hover {
+    background: rgba(255,255,255,0.07);
+    border-color: var(--border-active);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-violet));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glow-blue {
+    box-shadow: 0 0 20px var(--glow-blue), 0 0 40px rgba(99,179,237,0.05);
+  }
+
+  .glow-violet {
+    box-shadow: 0 0 20px var(--glow-violet);
+  }
+
+  .input-field {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-primary);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 14px;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    font-family: inherit;
+  }
+
+  .input-field:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 3px rgba(99,179,237,0.1);
+  }
+
+  .input-field::placeholder {
+    color: var(--text-muted);
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+    width: 100%;
+    font-family: inherit;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(59,130,246,0.35);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .animate-pulse-soft {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+
+  @keyframes slideUpFade {
+    0% { opacity: 0; transform: translate(-50%, 10px); }
+    100% { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+}
