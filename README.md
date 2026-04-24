@@ -51,9 +51,9 @@ docker compose restart api
 
 ### 5. Sign In to the App
 
-Your complete application stack (including the frontend client) is now running securely inside Docker! Nginx automatically handles proxying everything on native port 80.
+Your complete application stack (including the frontend client) is now running securely inside Docker! Nginx automatically handles proxying everything on port 8080.
 
-1. Open your browser and navigate permanently to [http://localhost](http://localhost).
+1. Open your browser and navigate to [http://localhost:8080](http://localhost:8080).
 2. The seed script generated a fully loaded test account for you completely filled with historical records. Log in natively using:
    - **Email:** `vsot@test.com`
    - **Password:** `password`
@@ -63,7 +63,7 @@ Your complete application stack (including the frontend client) is now running s
 
 ### Register a User
 ```bash
-curl -s -X POST http://localhost/api/auth/register \
+curl -s -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"alice@example.com","username":"alice","password":"Test1234!"}' \
   | jq .
@@ -73,7 +73,7 @@ Expected: `201` with `jwt`, `user`, and `xmpp` credentials.
 
 ### Login
 ```bash
-curl -s -X POST http://localhost/api/auth/login \
+curl -s -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"alice@example.com","password":"Test1234!"}' \
   | jq .
@@ -83,12 +83,12 @@ Expected: `200` with `jwt` and `xmpp.password` (decrypted from AES-256-GCM).
 
 ### XMPP Admin Status
 ```bash
-curl -s http://localhost/api/admin/xmpp/status
+curl -s http://localhost:8080/api/admin/xmpp/status
 ```
 
 ### Password Reset (Mock SMTP — EC-1)
 ```bash
-curl -s -X POST http://localhost/api/auth/forgot-password \
+curl -s -X POST http://localhost:8080/api/auth/forgot-password \
   -H "Content-Type: application/json" \
   -d '{"email":"alice@example.com"}'
 ```
@@ -105,7 +105,7 @@ Configure Gajim or Pidgin to connect to `localhost:5222` with:
 ## Architecture
 
 ```
-[Browser] ──→ [Nginx :80]
+[Browser] ──→ [Nginx :8080]
                    ├── /xmpp  ──→ [Prosody :5280] (WebSocket, real-time)
                    ├── /api   ──→ [Node API :3001] (REST, history, uploads)
                    └── /      ──→ [React :3000]   (frontend)

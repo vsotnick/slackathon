@@ -91,7 +91,7 @@ services:
     # Prosody doesn't have a built-in health check command.
     # We check that port 5280 (mod_websocket/BOSH) is responding.
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:5280 || exit 0"]
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:5280/http-bind 2>/dev/null || exit 1"]
       interval: 15s
       timeout:  10s
       retries:  5
@@ -128,7 +128,7 @@ services:
       postgres:
         condition: service_healthy
       prosody:
-        condition: service_started
+        condition: service_healthy
     volumes:
       # Live source mount — changes to api/src on the host are immediately visible
       - ./api:/app
@@ -159,9 +159,9 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      # prosody is needed for WebSocket proxy — wait for it to start
+      # prosody is needed for WebSocket proxy — wait for it to be healthy
       prosody:
-        condition: service_started
+        condition: service_healthy
       # client dev server must be running before Nginx can proxy /
       client:
         condition: service_started
