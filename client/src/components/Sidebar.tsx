@@ -42,24 +42,26 @@ const PresenceDot = ({ status }: { status: 'online' | 'away' | 'offline' }) => {
 };
 
 // ── Unread detection ───────────────────────────────────────────────────────
-// Two signals are used:
-//  1. Local message list vs lastReadAt  — accurate once history is loaded
-//  2. room.watermark_seq > 0 with no lastReadAt — detects unread in rooms the
-//     user hasn't visited yet (history never fetched, so local list is empty)
+// Server-side: unread = watermark_seq - last_read_seq (survives across sessions)
+// Client-side: once history is loaded, use local timestamp comparison for accuracy
 function useUnreadCount(room: Room): number {
   const msgs      = useChatStore((s) => s.messages[room.jid] ?? EMPTY_MESSAGES);
   const lastRead  = useChatStore((s) => s.lastReadAts[room.jid] ?? null);
 
-  // If we have local messages, count by timestamp
-  if (msgs.length > 0) {
-    if (!lastRead) return msgs.length;
+  // If we have local messages and the user has read some, count by timestamp
+  if (msgs.length > 0 && lastRead) {
     return msgs.filter((m) => m.timestamp > lastRead).length;
   }
 
-  // No local messages yet — use watermark_seq as proxy:
-  // watermark_seq > 0 means messages exist on the server.
-  // If the user has never read this room (no lastReadAt), treat entire room as unread.
-  if ((room.watermark_seq ?? 0) > 0 && !lastRead) return 1; // at least 1 unread (exact count unknown)
+  // Server-side unread: watermark_seq tracks total messages, last_read_seq tracks
+  // how far this user has read. The difference is the unread count.
+  const watermark = room.watermark_seq ?? 0;
+  const lastReadSeq = room.last_read_seq ?? 0;
+  if (watermark > lastReadSeq) return watermark - lastReadSeq;
+
+  // If we have local messages but no lastRead (first visit this session), all are unread
+  if (msgs.length > 0 && !lastRead) return msgs.length;
+
   return 0;
 }
 
