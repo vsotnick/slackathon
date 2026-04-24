@@ -77,10 +77,12 @@ export const useAuthStore = create<AuthState>()(
 
           // 🔑 ARCHITECTURAL DIRECTIVE: Immediately connect the XMPP singleton
           // after a successful login so the WebSocket is ready before navigation.
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = `${wsProtocol}//${window.location.host}/xmpp`;
           useChatStore.getState().connect(
             data.xmpp.jid,
             data.xmpp.password,
-            data.xmpp.wsUrl,
+            wsUrl,
             data.jwt,
           );
         } catch (err: unknown) {
@@ -117,10 +119,12 @@ export const useAuthStore = create<AuthState>()(
           });
 
           // 🔑 Connect immediately after registration too
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = `${wsProtocol}//${window.location.host}/xmpp`;
           useChatStore.getState().connect(
             data.xmpp.jid,
             data.xmpp.password,
-            data.xmpp.wsUrl,
+            wsUrl,
             data.jwt,
           );
         } catch (err: unknown) {
@@ -177,10 +181,13 @@ export const useAuthStore = create<AuthState>()(
       rehydrateXmpp: () => {
         const { jwt, xmppCredentials } = get();
         if (jwt && xmppCredentials) {
+          // Derive wsUrl from current page origin to handle port changes
+          const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = `${wsProtocol}//${window.location.host}/xmpp`;
           useChatStore.getState().connect(
             xmppCredentials.jid,
             xmppCredentials.password,
-            xmppCredentials.wsUrl,
+            wsUrl,
             jwt,
           );
         }

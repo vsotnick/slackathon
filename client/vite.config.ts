@@ -11,6 +11,7 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    allowedHosts: true, // Allow Nginx reverse proxy (Docker hostname "client")
     // -------------------------------------------------------------------------
     // Windows + Docker file watching fix:
     // inotify events from the Windows host don't propagate into the WSL2

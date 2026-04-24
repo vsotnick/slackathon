@@ -9,12 +9,27 @@
 'use strict';
 
 const { Client } = require('pg');
+const path = require('path');
+const fs = require('fs');
+
+// ---------------------------------------------------------------------------
+// Read DB password from .env so the seed script always matches the running DB.
+// Falls back to the .env.example default if .env doesn't exist yet.
+// ---------------------------------------------------------------------------
+function loadEnvPassword() {
+  const envPath = path.join(__dirname, '.env');
+  const examplePath = path.join(__dirname, '.env.example');
+  const file = fs.existsSync(envPath) ? envPath : examplePath;
+  const content = fs.readFileSync(file, 'utf8');
+  const match = content.match(/^POSTGRES_PASSWORD=(.+)$/m);
+  return match ? match[1].trim() : 'slackathon_local_dev_2024';
+}
 
 const DB = {
   host: 'localhost',
   port: 5432,
   user: 'slackathon',
-  password: 'slackathon_dev_password_2024',
+  password: loadEnvPassword(),
   database: 'slackathon',
 };
 
@@ -196,18 +211,55 @@ async function main() {
   console.log(`  Deleted ${deleted.rowCount} non-vsot users`);
 
   console.log('\n── NEW USERS ─────────────────────────────────────────────────');
-  const bcrypt = require('crypto');
-  const passwordHash = '$2b$10$wE99qWwz8cOEqO1A4B0MhuSg1aT04.aW1mPZ8b/6GZ7mJ4K0d7Q2i';
+  const bcrypt = require('bcrypt');
+  // Hash "password" with bcrypt so seeded users can log in
+  const passwordHash = await bcrypt.hash('password', 10);
 
-  for (const u of VSOT_USERS) {
-    if (u._isNew) {
-      // Upsert so the ID matches memory
-      await client.query(`
-        INSERT INTO users (id, username, email, xmpp_jid, password_hash, xmpp_password_enc, xmpp_password_iv, xmpp_password_tag, role)
-        VALUES ($1, $2, $3, $4, $5, '\\x00', '\\x00', '\\x00', 'user')
-        ON CONFLICT (username) DO UPDATE SET id = EXCLUDED.id
-      `, [u.id, u.username, `${u.username}@example.com`, u.jid, passwordHash]);
+  // ── Register the primary vsot user through the API ──────────────────────
+  // This ensures vsot gets real XMPP credentials (encrypted password, Prosody account).
+  // Other seeded users are DB-only (for message history) and can be registered via the UI.
+  const API_BASE = process.env.APP_BASE_URL || 'http://localhost';
+  console.log(`  Registering vsot via API at ${API_BASE}...`);
+
+  // Delete vsot first if it exists (so we can re-register cleanly)
+  await client.query('DELETE FROM room_members WHERE user_id = (SELECT id FROM users WHERE username=$1)', ['vsot']);
+  await client.query('DELETE FROM friendships WHERE requester_id = (SELECT id FROM users WHERE username=$1) OR addressee_id = (SELECT id FROM users WHERE username=$1)', ['vsot']);
+  await client.query('DELETE FROM user_sessions WHERE user_id = (SELECT id FROM users WHERE username=$1)', ['vsot']);
+  await client.query('DELETE FROM users WHERE username=$1', ['vsot']);
+
+  let vsotRegistered = false;
+  try {
+    const regRes = await fetch(`${API_BASE}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'vsot', email: 'vsot@test.com', password: 'password' }),
+    });
+    if (regRes.ok) {
+      const regData = await regRes.json();
+      console.log(`  ✓ vsot registered via API (id: ${regData.user.id})`);
+      // Update the in-memory ID to match what the API assigned
+      VSOT_USERS[0].id = regData.user.id;
+      vsotRegistered = true;
+    } else {
+      const errData = await regRes.json().catch(() => ({}));
+      console.warn(`  ⚠ API registration failed (${regRes.status}): ${errData.message || 'unknown'}`);
+      console.warn('    Falling back to direct DB insert (login may not work for vsot)');
     }
+  } catch (err) {
+    console.warn(`  ⚠ Could not reach API at ${API_BASE}: ${err.message}`);
+    console.warn('    Falling back to direct DB insert (login may not work for vsot)');
+  }
+
+  // Insert all users into the DB (vsot may already exist from API registration)
+  for (const u of VSOT_USERS) {
+    if (u.username === 'vsot' && vsotRegistered) continue; // Already registered via API
+    const email = u.username === 'vsot' ? 'vsot@test.com' : `${u.username}@example.com`;
+    await client.query(`
+      INSERT INTO users (id, username, email, xmpp_jid, password_hash, xmpp_password_enc, xmpp_password_iv, xmpp_password_tag, role)
+      VALUES ($1, $2, $3, $4, $5, '\\x00', '\\x00', '\\x00', 'user')
+      ON CONFLICT (username) DO UPDATE SET id = EXCLUDED.id, email = EXCLUDED.email
+    `, [u.id, u.username, email, u.jid, passwordHash]);
+    console.log(`  ✓ Upserted user: ${u.username} (${email})`);
   }
 
 

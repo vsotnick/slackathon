@@ -167,7 +167,8 @@ services:
         condition: service_started
     ports:
       # Primary public port — all browser traffic enters here
-      - "80:80"
+      # Using 8080 because Rancher Desktop's host-switch occupies port 80
+      - "8080:80"
       # 443 reserved for Phase 2 (HTTPS/TLS termination)
     networks:
       - slackathon-net

@@ -39,6 +39,7 @@ docker compose up -d
 
 Once Docker is fully booted, populate the database with realistic rooms, active Direct Messages, and heavy message volumes (10k+ messages) directly by running the backend seeder script in the root folder:
 ```bash
+npm install   # Install pg dependency for the seed script (first time only)
 node seed.js
 ```
 *(Wait until it finishes outputting `Seed complete!`)*
@@ -176,3 +177,48 @@ Stop and **delete all data**:
 ```bash
 docker compose down -v
 ```
+
+## Troubleshooting
+
+### Port 80 is already in use
+If `http://localhost` returns a generic "404 page not found" (plain text, not HTML), another process is occupying port 80. Common culprits: **Rancher Desktop**, **IIS**, **Apache**, **Skype**.
+
+**Fix:** Change the Nginx port in `docker-compose.yml`:
+```yaml
+nginx:
+  ports:
+    - "8080:80"   # Change 80 to any free port
+```
+Then update `APP_BASE_URL` in `.env`:
+```
+APP_BASE_URL=http://localhost:8080
+```
+Restart: `docker compose up -d nginx && docker compose restart api`
+
+Access the app at `http://localhost:8080`.
+
+### Prosody crashes with "exec: no such file or directory"
+This happens when `prosody/docker-entrypoint.sh` has Windows CRLF (`\r\n`) line endings. The `.gitattributes` file in this repo forces LF for shell scripts, but if you downloaded the code as a ZIP or your Git config overrides it:
+```bash
+# Fix manually (Git Bash / WSL):
+sed -i 's/\r$//' prosody/docker-entrypoint.sh
+docker compose up -d --build prosody
+```
+
+### Registration fails with 500 error
+Check `docker compose logs api` — if you see "Failed to create XMPP user: HTTP 500", Prosody's admin REST module may have a host mismatch. Verify Prosody is healthy:
+```bash
+docker compose ps prosody
+docker compose logs prosody --tail 20
+```
+
+### seed.js fails with "password authentication failed"
+The seed script reads the DB password from your `.env` file. Make sure `.env` exists and `POSTGRES_PASSWORD` matches what PostgreSQL was initialized with. If you changed the password after the first boot, you need to reset the volume:
+```bash
+docker compose down -v   # Deletes all data!
+docker compose up -d
+```
+
+### WebSocket connection fails after login
+If the browser console shows `WebSocket connection to 'ws://localhost/xmpp' failed` but you're running on a different port, clear your browser's localStorage for the site (DevTools → Application → Local Storage → delete `slackathon-auth`) and log in again.
+
