@@ -57,7 +57,9 @@ COPY conf.d/               /etc/prosody/conf.d/
 
 # Copy startup script (generates self-signed TLS certs + launches Prosody)
 COPY docker-entrypoint.sh  /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+# Strip Windows CRLF line endings — prevents "exec: no such file or directory"
+# when the repo is cloned on Windows without .gitattributes eol=lf enforcement.
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 # Ports:
 #   5222 — XMPP C2S (native Jabber clients e.g. Gajim)

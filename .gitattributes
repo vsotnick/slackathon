@@ -1,0 +1,24 @@
+# =============================================================================
+# Force LF line endings for files that run inside Linux containers.
+# Windows Git may check out files with CRLF, which breaks shell scripts
+# and config files when copied into Docker containers.
+# =============================================================================
+
+# Shell scripts — MUST be LF or Linux /bin/sh will fail with:
+#   "exec /docker-entrypoint.sh: no such file or directory"
+*.sh        text eol=lf
+
+# Prosody / Lua config files
+*.lua       text eol=lf
+*.cfg.lua   text eol=lf
+
+# Nginx config
+nginx.conf  text eol=lf
+*.conf      text eol=lf
+
+# SQL init scripts
+*.sql       text eol=lf
+
+# Docker files
+Dockerfile  text eol=lf
+.dockerignore text eol=lf

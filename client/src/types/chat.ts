@@ -48,6 +48,8 @@ export interface Room {
   is_private?: boolean;
   /** Monotonic message counter from the DB — used to detect unread before history loads */
   watermark_seq?: number;
+  /** Per-user read position — 0 means never read. Unread = watermark_seq - last_read_seq */
+  last_read_seq?: number;
 }
 
 /** A registered user returned by GET /api/users, enriched with live presence state. */

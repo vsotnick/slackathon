@@ -41,6 +41,8 @@ local function handle_user_post(event, path)
     if not username then
         username = path;
         target_host = request.headers.host:match("^([^:]+)"):lower();
+    else
+        target_host = target_host:lower();
     end
 
     if not username or username == "" then return send_json(response, 400, { error = "Missing username" }) end
@@ -64,6 +66,8 @@ local function handle_user_delete(event, path)
     if not username then
         username = path;
         target_host = request.headers.host:match("^([^:]+)"):lower();
+    else
+        target_host = target_host:lower();
     end
 
     if not username or username == "" then return send_json(response, 400, { error = "Missing username" }) end
@@ -84,6 +88,8 @@ local function handle_password_put(event, path)
     if not username then
         username = path;
         target_host = request.headers.host:match("^([^:]+)"):lower();
+    else
+        target_host = target_host:lower();
     end
 
     if not username or username == "" then return send_json(response, 400, { error = "Missing username" }) end
@@ -107,6 +113,8 @@ local function handle_kick_sessions(event, path)
     if not username then
         username = path;
         target_host = request.headers.host:match("^([^:]+)"):lower();
+    else
+        target_host = target_host:lower();
     end
 
     if not username or username == "" then return send_json(response, 400, { error = "Missing username" }) end

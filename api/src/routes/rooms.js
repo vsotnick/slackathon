@@ -78,12 +78,13 @@ module.exports = async function roomRoutes(fastify) {
       `SELECT r.id, r.name, r.jid, r.description, r.is_private, r.watermark_seq,
               r.created_at,
               u.username AS owner_username,
+              rm.last_read_seq,
               COUNT(rm2.user_id) AS member_count
        FROM rooms r
        INNER JOIN room_members rm ON rm.room_id = r.id AND rm.user_id = $1
        LEFT JOIN users u ON u.id = r.owner_id
        LEFT JOIN room_members rm2 ON rm2.room_id = r.id
-       GROUP BY r.id, u.username
+       GROUP BY r.id, u.username, rm.last_read_seq
        ORDER BY r.created_at ASC
        LIMIT 200`,
       [request.user.id]
@@ -674,6 +675,56 @@ module.exports = async function roomRoutes(fastify) {
     } finally {
       client.release();
     }
+  });
+
+  // ---------------------------------------------------------------------------
+  // PUT /api/rooms/:id/read — Mark room as read up to a given watermark seq
+  //
+  // The client calls this when the user views a room. last_read_seq is advanced
+  // to the room's current watermark_seq so unread = (watermark_seq - last_read_seq).
+  // ---------------------------------------------------------------------------
+  fastify.put('/:id/read', {
+    preHandler: [authenticate],
+    schema: {
+      params: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } },
+      body: {
+        type: 'object',
+        properties: {
+          seq: { type: 'integer', minimum: 0 },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const roomId = request.params.id;
+    const userId = request.user.id;
+    // If seq is provided, use it; otherwise mark as read up to the room's current watermark
+    const seq = request.body?.seq;
+
+    let result;
+    if (seq !== undefined) {
+      // Only advance forward — never regress
+      result = await query(
+        `UPDATE room_members SET last_read_seq = GREATEST(last_read_seq, $1)
+         WHERE room_id = $2 AND user_id = $3
+         RETURNING last_read_seq`,
+        [seq, roomId, userId]
+      );
+    } else {
+      // Mark as fully read (advance to room's current watermark_seq)
+      result = await query(
+        `UPDATE room_members rm SET last_read_seq = r.watermark_seq
+         FROM rooms r
+         WHERE rm.room_id = r.id AND rm.room_id = $1 AND rm.user_id = $2
+         RETURNING rm.last_read_seq`,
+        [roomId, userId]
+      );
+    }
+
+    if (result.rows.length === 0) {
+      return reply.code(404).send({ error: 'Not Found', message: 'Not a member of this room.' });
+    }
+
+    return reply.send({ last_read_seq: result.rows[0].last_read_seq });
   });
 
 };

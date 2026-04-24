@@ -739,6 +739,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         description: r.description ?? '', kind: 'muc' as const,
         is_private: r.is_private ?? false,
         watermark_seq: r.watermark_seq ?? 0,
+        last_read_seq: r.last_read_seq ?? 0,
       }));
       console.log('[chatStore] ✓ Loaded', rooms.length, 'rooms from API');
       set({ rooms, roomsLoading: false });
@@ -1124,6 +1125,19 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         // Mark as read immediately after history loads so loaded history doesn't
         // appear as "unread" in the sidebar for the room the user is actively in.
         get().markAsRead(roomJid);
+
+        // Persist read state to server so it survives across sessions/devices
+        const { jwt } = get();
+        if (jwt && room.id) {
+          apiFetch(jwt, `/api/rooms/${room.id}/read`, { method: 'PUT' }).catch(() => {});
+          // Update local room object so sidebar unread recalculates immediately
+          set((state) => ({
+            rooms: state.rooms.map((r) =>
+              r.jid === roomJid ? { ...r, last_read_seq: r.watermark_seq ?? 0 } : r
+            ),
+          }));
+        }
+
         if (!get().joinedRooms[roomJid]) get().joinRoom(roomJid);
       });
     } else {
